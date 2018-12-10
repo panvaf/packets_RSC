@@ -38,11 +38,11 @@ nBins = floor(rec_length/bin_size);
 
 %% Parameters for detection, need to be tuned separately for each dataset
 kernel_size = 0.04; % in sec, gaussian kernel
-perc = .6; % percentage of average local population activity that corresponds to a packet
+per_act = .6; % percentage of average local population activity that corresponds to a packet
 win = 5*60; % size of local window, in seconds
 isclose = 0.035; % in sec, merge events that are too close
 min_duration = 0.05; % in sec, look for silent periods before and after packet
-th = .08; % percentage of maximum of packet that must be reached by a quiet in-between state
+per_sil = .2; % percentage of maximum of packet that must be reached by a silent in-between state
 min_dur = 0.04; % in sec, delete packets that are smaller than this
 max_dur = 0.5; % in sec, delete packets that are bigger than this
 
@@ -80,7 +80,8 @@ clear spiketimesArray
 pop = filter(kernel,1,spikes_hist);
 % pop = zscore(pop); % does not increase discrimination in a meaningfull way
 
-thresh = perc*movmean(pop,win); % set threshold to percentage local average
+mean_win = movmean(pop,win);
+thresh = per_act*mean_win; % set threshold to percentage local average
 
 for i=1:size(pop,2)
     if pop(i) > thresh(i)
@@ -110,16 +111,16 @@ end
 on(on==0) = [];
 off(off==0) = [];
 
-%% if a packet is not prominent enough, delete it
+%% if a packet is not happening between periods of inactivity, delete it
 % must always be done after packet collation! (because otherwise we might lose part of a packet)
 
 min_duration = floor(min_duration/bin_size);
+th = per_sil*mean_win;
 
 for i=2:size(off)-1
-    max_in = max(pop(on(i):off(i)));
     min_bef = min(pop((on(i)-min_duration):on(i)));
     min_aft = min(pop(off(i):(off(i)+min_duration)));
-    if min_bef > th*max_in | min_aft > th*max_in
+    if min_bef > th(on(i)) | min_aft > th(off(i))
         on(i) = 0;
         off(i) = 0;
     end
