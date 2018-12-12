@@ -226,3 +226,5 @@ for i = 1:2:2*k
 end
 
 SaveEvents(filename_st,events);
+
+save StateIndex.mat state_index Fs
