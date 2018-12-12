@@ -1,0 +1,10 @@
+ripFil = [basepath '/' basename '.evt.rip'];
+rip_evs = LoadEvents(ripFil);
+rip_st = rip_evs.time(cellfun(@any,regexp(rip_evs.description,'peak')));
+[status,interval,index] = InIntervals(rip_st, SYN');
+syn_perc = sum(syn)/length(syn);
+inside_perc =  sum(status)/length(status);
+pref = inside_perc/syn_perc
+
+% 1.64, 1.14, 1.73, 1.59, 1.11, 1.14, 1.22, 1.21, 1.35, 1.20, 1.07, 3.49,
+% 1.4, 2.02

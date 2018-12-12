@@ -26,3 +26,6 @@ bar(timevec,smooth(cch2))
 save(['/home/panteleimon/Documents/diagrams/' basename '.mat'], 'cch1','cch2')
 saveas(figure(1),['/home/panteleimon/Documents/diagrams/' basename '_uds_rip_cch.fig'])
 saveas(figure(2),['/home/panteleimon/Documents/diagrams/' basename '_uds_stim_cch.fig'])
+
+
+% use InIntervals.m to check preferential occurence of ripples
