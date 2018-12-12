@@ -38,6 +38,7 @@ nBins = floor(rec_length/bin_size);
 
 %% Parameters for detection, need to be tuned separately for each dataset
 kernel_size = 0.04; % in sec, gaussian kernel
+<<<<<<< HEAD
 per_act = .8; % percentage of average local population activity that corresponds to a packet
 win = 10*60; % size of local window, in seconds
 isclose = 0.035; % in sec, merge events that are too close
@@ -45,6 +46,15 @@ min_duration = 0.03; % in sec, look for silent periods before and after packet
 per_sil = .3; % percentage of maximum of packet that must be reached by a silent in-between state
 min_dur = 0.04; % in sec, delete packets that are smaller than this
 max_dur = 0.7; % in sec, delete packets that are bigger than this
+=======
+per_act = .6; % percentage of average local population activity that corresponds to a packet
+win = 5*60; % size of local window, in seconds
+isclose = 0.035; % in sec, merge events that are too close
+min_duration = 0.05; % in sec, look for silent periods before and after packet
+per_sil = .2; % percentage of maximum of packet that must be reached by a silent in-between state
+min_dur = 0.04; % in sec, delete packets that are smaller than this
+max_dur = 0.5; % in sec, delete packets that are bigger than this
+>>>>>>> upstream/master
 
 % initial params (Tuesday): .1,1.5,.025,.05,.4,.02
 % got quite good diagrams (Wednesday) with 0.07, 1.3, 0.025, 0.05, 0.3, 0.02
