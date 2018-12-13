@@ -40,9 +40,9 @@ sinewave_stim_st = 1300; % in seconds, change for every session
 % dsc1904_181015_1 : 1500 -> off responses 
 % dsc1904_181015_2 : 900  -> off responses
 % dsc1904_181016_1 : 1240 -> no responses
-% dsc1904_181016_2 : 1000
+% dsc1904_181016_2 : 1000 -> no responses
 
-% dsc4307_181016_1 : 1300
+% dsc4307_181016_1 : 1300 -> off responses
 
 stim_idx{1} = rip_on_idx; 
 stim_idx{2} = rip_off_idx; 
