@@ -42,13 +42,15 @@ nBins = floor(rec_length/bin_size);
 kernel_packet = 0.04; % in sec, gaussian kernel for the detection of packets
 per_act = .6; % percentage of average local population activity that corresponds to a packet
 win = 5*60; % size of local window, in seconds
-isclose = 0.035; % in sec, merge events that are too close
+isclose = 0.035; % in sec, merge packets that are too close
 min_duration = 0.05; % in sec, look for silent periods before and after packet
-per_sil = .2; % percentage of maximum of packet that must be reached by a silent in-between state
+per_sil = .3; % percentage of maximum of packet that must be reached by a silent in-between state
 min_dur = 0.04; % in sec, delete packets that are smaller than this
 max_dur = 0.5; % in sec, delete packets that are bigger than this
 kernel_states = 2; % in sec, gaussian kernel for the merging of packets into states
-per_state = .3; % percentage of kernel integral that defines a synchronised state
+per_state = .2; % percentage of kernel integral that defines a synchronised state
+isclose_syn = 1; % in sec, merge synchronous events that are too close
+min_dur_syn = .5; % in sec, delete synchronous events that are smaller than this, probably should be bigger than maximum size of packet (of course there is also smoothing)
 
 % initial params (Tuesday): .1,1.5,.025,.05,.4,.02
 % got quite good diagrams (Wednesday) with 0.07, 1.3, 0.025, 0.05, 0.3, 0.02
@@ -68,6 +70,11 @@ per_state = .3; % percentage of kernel integral that defines a synchronised stat
 % activity? chose to increase the threshold for detection:
 % 0.04, 1.2, 0.035, .05, .08, .04, .5
 
+% universal parameters: .04, .6, 5*60, .035, .05, .2, .04, .5, 2, .3
+% to make less fragmented synchronous states, do thres = .2 and merge
+% states that are close enough, then delete states with small duration
+% thres = .1 is too low, picks up individual packets as states
+% make per_sil = .3 to detect more packets to collate states
 %% define kernel
 
 % 50 ms min packet size in literature, integrate over longer time to reduce the effect of coincidences
@@ -188,6 +195,37 @@ off = find(transitions==-1)';
 if length(on) ~= length(off)
     off = [off; length(transitions)];
 end    
+
+%% if two synchronous events are too close, collate them
+
+isclose_syn = floor(isclose_syn/bin_size);
+
+for i=2:size(off)
+    if on(i)-off(i-1)<isclose_syn
+        on(i) = 0;
+        off(i-1) = 0;
+    end
+end
+
+on(on==0) = [];
+off(off==0) = [];
+
+%% delete synchronous events that are too small (always after collating)
+
+min_dur_syn = floor(min_dur_syn/bin_size);
+
+for i=1:size(off)
+    dif = off(i) - on(i);
+    if dif < min_dur_syn
+        on(i) = 0;
+        off(i) = 0;
+    end
+end
+
+on(on==0) = [];
+off(off==0) = [];
+
+%%
 
 INX_st(:,1) = on;
 INX_st(:,2) = off;
