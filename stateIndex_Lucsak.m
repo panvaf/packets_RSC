@@ -23,48 +23,42 @@ rec_length = num_samples/Fs;  % in seconds
 
 %% parameters
 bin_size = 0.001;
-window = 5; % in sec, size of window to look for percentage of silent bins
+window = .02; % in sec, size of window to look for percentage of silent bins
 mult = 100; % averaging window how much larger?
 win = mult*window; % in sec, for non stationarity of state index
-th_up = 1.05; % defines desyn state
-th_low = .95; % defines syn state
+per_win = 1; % window to compute percentage of silent states
+nn = length(CellParams);
+th = nn/100; % threshold below which it is considered silent, should depend on number of neurons
+per_win = floor(per_win/bin_size);
 nBins = floor(rec_length/bin_size);
 window = floor(window/bin_size);
 win = floor(win/bin_size);
 kernel = gausswin(window);
 
-%% Find percentage of bins that are silent
+%% Compute MUA
 
-spiketimes_unique = unique(spiketimesArray);
-spike_events = false([nBins 1]);
+spikes_hist = hist(spiketimesArray,nBins);
+clear spiketimesArray
 
-for i=1:length(spiketimes_unique)
-    spike_events(ceil(spiketimes_unique(i)/bin_size)) = true;
-end
+MUA = filter(kernel,1,spikes_hist);
+perc_active = ones(1,nBins);
 
-perc_active = filter(kernel,1,spike_events);
-%{
 % with moving average
-for i = ceil(win_size/2):nBins - floor(win_size/2)
-    perc_active(i) = sum(spike_events((i-floor(win_size/2)+1):(i+floor(win_size/2))))/win_size;
+for i = ceil(per_win/2):nBins - floor(per_win/2)
+    perc_active(i) = sum(MUA((i-floor(per_win/2)+1):(i+floor(per_win/2)))>th)/per_win;
 end
-%}
-
-mean_win = movmean(perc_active,win);
-th_low = th_low*mean_win;
-th_up = th_up*mean_win;
 
 time = bin_size:bin_size:rec_length;
 figure
+plot(time,MUA/sum(kernel))
+hold on
 plot(time,perc_active)
 title('State index')
+legend('MUA','State Index')
 xlabel('Time (s)')
 ylabel('Percentage')
-hold on
-plot(time,th_up)
-plot(time,th_low)
-
-
+xlim([6595 6605])
+%{
 %% define syn and desyn states
 
 syn = zeros(1,nBins);
@@ -132,3 +126,5 @@ for i = 1:2:2*n
 end
 
 SaveEvents(filename_desyn,events);
+
+%}
