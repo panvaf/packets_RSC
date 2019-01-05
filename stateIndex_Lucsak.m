@@ -34,6 +34,8 @@ nBins = floor(rec_length/bin_size);
 window = floor(window/bin_size);
 win = floor(win/bin_size);
 kernel = gausswin(window);
+th_syn = 33;
+th_desyn = 67;  % as percentage on sorted values of state index
 
 %% Compute MUA
 
@@ -57,17 +59,20 @@ title('State index')
 legend('MUA','State Index')
 xlabel('Time (s)')
 ylabel('Percentage')
-xlim([6595 6605])
-%{
+%xlim([6595 6605])
+
 %% define syn and desyn states
+
+a = prctile(perc_active,[th_syn th_desyn]);
+th_syn = a(1); th_desyn = a(2);
 
 syn = zeros(1,nBins);
 desyn = zeros(1,nBins);
 
-for i=1:size(perc_active,1)
-    if perc_active(i) > th_up(i)
+for i=1:length(perc_active)
+    if perc_active(i) > th_desyn
         desyn(i) = 1;
-    elseif perc_active(i) < th_low(i)
+    elseif perc_active(i) < th_syn
         syn(i) = 1;
     end
 end
@@ -126,5 +131,3 @@ for i = 1:2:2*n
 end
 
 SaveEvents(filename_desyn,events);
-
-%}
