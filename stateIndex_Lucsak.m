@@ -26,7 +26,7 @@ bin_size = 0.001;
 window = .02; % in sec, size of window to look for percentage of silent bins
 mult = 100; % averaging window how much larger?
 win = mult*window; % in sec, for non stationarity of state index
-per_win = 1; % window to compute percentage of silent states
+per_win = 5; % window to compute percentage of silent states
 nn = length(CellParams);
 th = nn/100; % threshold below which it is considered silent, should depend on number of neurons
 per_win = floor(per_win/bin_size);
@@ -50,21 +50,25 @@ for i = ceil(per_win/2):nBins - floor(per_win/2)
     perc_active(i) = sum(MUA((i-floor(per_win/2)+1):(i+floor(per_win/2)))>th)/per_win;
 end
 
+% perc_active = lowpass(perc_active,50,Fs); % no signal analysis toolbox?
+
+a = prctile(perc_active,[th_syn th_desyn]);
+th_syn = a(1); th_desyn = a(2);
+
 time = bin_size:bin_size:rec_length;
 figure
 plot(time,MUA/sum(kernel))
 hold on
 plot(time,perc_active)
+plot(time,th_syn*ones(size(time)))
+plot(time,th_desyn*ones(size(time)))
 title('State index')
-legend('MUA','State Index')
+legend('MUA','State Index','Syn threshold','Desyn threshold')
 xlabel('Time (s)')
 ylabel('Percentage')
 %xlim([6595 6605])
 
 %% define syn and desyn states
-
-a = prctile(perc_active,[th_syn th_desyn]);
-th_syn = a(1); th_desyn = a(2);
 
 syn = zeros(1,nBins);
 desyn = zeros(1,nBins);
