@@ -6,7 +6,7 @@ load DSC1914_181015_1_RSC.spikes.cellinfo.mat
 load StateIndex.mat
 
 %% bin and smooth
-mn = min(cellfun(@max,spikes.times));
+mn = min(cellfun(@min,spikes.times));
 mx = max(cellfun(@max,spikes.times));
 % k = gaussian2Dfilter([100 1],5);
 k = fspecial('gaussian',[100 1],5);
@@ -15,10 +15,15 @@ ts = mn-dt:dt:mx+dt;
 temp = cell2mat(cellfun(@(a) nanconvn(histc(a,ts),k)',spikes.times,'uni',0)');
  
 %% choose time bins when packets have been detected
+index = round((UDS-mn)/dt);
+tot = sum(index(2,:)-index(1,:));
+NEURAL = zeros(size(temp,1),tot);
 
-NEURAL = [];
-for i=1:size(UDS,2)
-    NEURAL = [NEURAL temp(round(UDS(1,i)/dt):round(UDS(2,i)/dt))];
+ind = 1;
+for i=1:size(index,2)
+    len = index(2,i)-index(1,i);
+    NEURAL(:,ind:ind+len) = temp(:,index(1,i):index(2,i));
+    ind = ind + len;
 end
 
 %% break data into training set and test set
