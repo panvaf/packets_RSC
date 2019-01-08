@@ -1,20 +1,28 @@
 % code written by Sam Mckenzie, subsequent modifications by panvaf
 
 
-%% load data 
- load('/media/sam/SM5/CA1RSC/SUB-RSC paper/LR1_RSC_180522_a.spikes.cellinfo.mat')
- 
+%% load data
+load DSC1914_181015_1_RSC.spikes.cellinfo.mat
+load StateIndex.mat
+
 %% bin and smooth
 mn = min(cellfun(@max,spikes.times));
 mx = max(cellfun(@max,spikes.times));
-k = gaussian2Dfilter([100 1],5);
+% k = gaussian2Dfilter([100 1],5);
+k = fspecial('gaussian',[100 1],5);
 dt = .001;
- ts = mn-dt:dt:mx+dt;
- NEURAL = cell2mat(cellfun(@(a) nanconvn(histc(a,ts),k)',spikes.times,'uni',0)');
+ts = mn-dt:dt:mx+dt;
+temp = cell2mat(cellfun(@(a) nanconvn(histc(a,ts),k)',spikes.times,'uni',0)');
  
- %%
+%% choose time bins when packets have been detected
+
+NEURAL = [];
+for i=1:size(UDS,2)
+    NEURAL = [NEURAL temp(round(UDS(1,i)/dt):round(UDS(2,i)/dt))];
+end
+
 %% break data into training set and test set
-splitN = floor(size(NEURAL,2)*.1); 
+splitN = floor(size(NEURAL,2)*.01);
 
 trainNEURAL = NEURAL(:,1:splitN); 
 
@@ -36,17 +44,18 @@ p = .05; % desired p value for factors
 
 %%
 
-  events = LoadEvents('LR1_RSC_180522_a.evt.stm');
-  stim = events.time(cellfun(@any,regexp(events.description,'start')));
-   events = LoadEvents('LR1_HPC_180522_a.evt.rip');
-  rip = events.time(cellfun(@any,regexp(events.description,'start')));
+events = LoadEvents('LR1_RSC_180522_a.evt.stm');
+stim = events.time(cellfun(@any,regexp(events.description,'start')));
+events = LoadEvents('LR1_HPC_180522_a.evt.rip');
+rip = events.time(cellfun(@any,regexp(events.description,'start')));
   %%
   
  
-  [N,K,L] = size(W);
-  idx = repmat(b,1,201) + repmat(-100:100,length(b),1);
+[N,K,L] = size(W);
+idx = repmat(b,1,201) + repmat(-100:100,length(b),1);
 T = size(NEURAL,2);
 WTX = zeros(K, T);
+
 for l = 1 : L
     %X_shifted = circshift(X,-l+1,2);       
     X_shifted = circshift(NEURAL,[0,-l+1]);       
@@ -55,26 +64,28 @@ end
 
 %%
 
- stim = stim(stim>ts(1));
-  [~,b]  =histc(stim,ts);
+stim = stim(stim>ts(1));
+[~,b]  =histc(stim,ts);
   
-  idx = repmat(b,1,4001)-50 + repmat(-2000:2000,length(b),1);
-   idx = idx(all(idx,2)>0,:);
-  stim = stim(stim>ts(1));
-  [~,b]  =histc(stim,ts);proj_stim= [];
+idx = repmat(b,1,4001)-50 + repmat(-2000:2000,length(b),1);
+idx = idx(all(idx,2)>0,:);
+stim = stim(stim>ts(1));
+[~,b]  =histc(stim,ts);proj_stim= [];
+
 for i = 1:5
    p = WTX(i,:);
    proj_stim{i} = p(idx);
 end
 
 
- rip = rip(rip>ts(1));
-  [~,b]  =histc(rip,ts);
+rip = rip(rip>ts(1));
+[~,b]  =histc(rip,ts);
   
-  idx = repmat(b,1,4001)-50 + repmat(-2000:2000,length(b),1);
-   idx = idx(all(idx,2)>0,:);
-  rip = rip(rip>ts(1));
-  [~,b]  =histc(rip,ts);proj_rip= [];
+idx = repmat(b,1,4001)-50 + repmat(-2000:2000,length(b),1);
+idx = idx(all(idx,2)>0,:);
+rip = rip(rip>ts(1));
+[~,b]  =histc(rip,ts);proj_rip= [];
+
 for i = 1:5
    p = WTX(i,:);
    proj_rip{i} = p(idx);
@@ -95,9 +106,9 @@ plot(-2000:2000,nanmean(proj_rip{i}),'r')
 xlim([-500 500])
 end
 %%
- [~,b]  =histc(stim,ts);
- idx = repmat(b,1,1001) + repmat(-500:500,length(b),1);
- idx = idx(all(idx,2)>0,:);
+[~,b]  =histc(stim,ts);
+idx = repmat(b,1,1001) + repmat(-500:500,length(b),1);
+idx = idx(all(idx,2)>0,:);
 [a,b] = pastalkova(squeeze(W(:,1,:)));
 s = nan(size(NEURAL,1),size(idx,2),size(idx,1));
 for i = 1:size(NEURAL,1)
@@ -105,7 +116,7 @@ for i = 1:size(NEURAL,1)
     s(i,:,:) = x(idx');
 end
 
-
+%{
 
 %%
 
@@ -202,4 +213,4 @@ addpath(genpath('misc_elm'));
 figure; HTriggeredSpec(H,trainSONG,VIDEOfs,SONGfs,Lsong); 
 
 figure; HTriggeredRaster(H,trainNEURAL(indSort,:),Lneural);
-
+%}
