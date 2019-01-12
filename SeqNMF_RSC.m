@@ -13,7 +13,23 @@ k = fspecial('gaussian',[100 1],5);
 dt = .001;
 ts = mn-dt:dt:mx+dt;
 temp = cell2mat(cellfun(@(a) nanconvn(histc(a,ts),k)',spikes.times,'uni',0)');
- 
+
+%% only keep packets with a duratiom in specified interval
+
+min_dur = .05; % in sec
+max_dur = .2;
+
+for i=1:size(UDS,2)
+    dif = UDS(2,i) - UDS(1,i);
+    if dif < min_dur | dif > max_dur
+        UDS(2,i) = 0;
+        UDS(1,i) = 0;
+    end
+end
+
+UDS(:,UDS(1,:)==0) = [];
+
+
 %% choose time bins when packets have been detected
 index = round((UDS-mn)/dt);
 tot = sum(index(2,:)-index(1,:));
