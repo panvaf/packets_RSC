@@ -1,4 +1,4 @@
-% nwaydecomp for the characterization of packets
+% nwaydecomp for the characterization of packets using split procedure
 % code by original git repository, modifications by panvaf
 
 %% load only essential stuff from fieldtrip
@@ -63,21 +63,37 @@ clearvars -except data label
 % from now on everything should be the same. I only need to bring our data
 % to the format of "data"
 
+%% split data
+
+% obtain splits
+nneuron = size(data{1},1); % data is the cell-array of spike trains we created above
+ntrial = numel(data);
+dataodd = cell(1,ntrial);
+dataeven = cell(1,ntrial);
+for itrial = 1:ntrial
+% get spike time stamps/indices
+    nsample = size(data{itrial},2);
+    [neurid, ts] = ind2sub(size(data{itrial}),find(data{itrial}));
+    oddind = 1:2:numel(ts);
+    evenind = 2:2:numel(ts);
+    % create new sparse spike train matrices
+    dataodd{itrial} = sparse(neurid(oddind), ts(oddind), ones(size(oddind)),nneuron,nsample);
+    dataeven{itrial} = sparse(neurid(evenind),ts(evenind),ones(size(evenind)),nneuron,nsample);
+end
+
 %% compute cross spectra
 
-% one variable taken from above
-data; % cell-array of spike train matrix per trial
 % set cross spectra choices
 timwin = 0.020; % complex exponential length in seconds
 freq = 50:50:1000; % frequency in Hz
 fsample = 20000; % sampling rate of the spike trains in Hz
 % set n's
-ntrial = numel(data);
-nneuron = size(data{1},1);
+ntrial = numel(dataodd);
+nneuron = size(dataodd{1},1);
 nfreq = numel(freq);
 % pre-allocate
-fourier = NaN(nneuron,nfreq,ntrial,nneuron,'single');
-fourier = complex(fourier,fourier);
+fourierodd = NaN(nneuron,nfreq,ntrial,nneuron,'single');
+fourierodd = complex(fourierodd,fourierodd);
 % convolve with complex exponential, obtain cross spectrum, obtain square root
 for itrial = 1:ntrial
     for ifreq = 1:nfreq
@@ -86,11 +102,11 @@ for itrial = 1:ntrial
         timeind = (-(round(timwin .* fsample)-1)/2 : (round(timwin .* fsample)-1)/2) ./fsample;
         wlt = exp(1i*timeind*2*pi*freq(ifreq));
         % get spectrum via sparse convolution
-        spectrum = sconv2(data{itrial},wlt,'same');
+        spectrum = sconv2(dataodd{itrial},wlt,'same');
         % obtain cross spectrum, csd
         csd = full(spectrum*spectrum');
         % normalize csd by number of time-points (for variable length epochs)
-        csd = csd ./ (size(data{itrial},2) ./ fsample);
+        csd = csd ./ (size(dataodd{itrial},2) ./ fsample);
         % obtain square root of cross spectrum
         [V L] = eig(csd);
         L = diag(L);
@@ -99,32 +115,85 @@ for itrial = 1:ntrial
         eigweigth = V(:,~zeroL)*diag(sqrt(L(~zeroL)));
         % save in fourier
         currm = size(eigweigth,2);
-        fourier(:,ifreq,itrial,1:currm) = eigweigth;
+        fourierodd(:,ifreq,itrial,1:currm) = eigweigth;
     end
 end
-nwaycompallN = cell(5,1);
+
+% do the same for even spikes
+
+% set n's
+ntrial = numel(dataeven);
+nneuron = size(dataeven{1},1);
+nfreq = numel(freq);
+% pre-allocate
+fouriereven = NaN(nneuron,nfreq,ntrial,nneuron,'single');
+fouriereven = complex(fouriereven,fouriereven);
+% convolve with complex exponential, obtain cross spectrum, obtain square root
+for itrial = 1:ntrial
+    for ifreq = 1:nfreq
+        disp(['working on trial #' num2str(itrial) ' @' num2str(freq(ifreq)) 'Hz'])
+        % construct complex exponential
+        timeind = (-(round(timwin .* fsample)-1)/2 : (round(timwin .* fsample)-1)/2) ./fsample;
+        wlt = exp(1i*timeind*2*pi*freq(ifreq));
+        % get spectrum via sparse convolution
+        spectrum = sconv2(dataeven{itrial},wlt,'same');
+        % obtain cross spectrum, csd
+        csd = full(spectrum*spectrum');
+        % normalize csd by number of time-points (for variable length epochs)
+        csd = csd ./ (size(dataeven{itrial},2) ./ fsample);
+        % obtain square root of cross spectrum
+        [V L] = eig(csd);
+        L = diag(L);
+        tol = max(size(csd))*eps(max(L));
+        zeroL = L<tol;
+        eigweigth = V(:,~zeroL)*diag(sqrt(L(~zeroL)));
+        % save in fourier
+        currm = size(eigweigth,2);
+        fouriereven(:,ifreq,itrial,1:currm) = eigweigth;
+    end
+end
 
 %% Normalize cross-spectra
-Ns = [1 8 16 32 64];
-
-N = 64; % an example N
-[nneuron,nfreq,ntrial,ntime] = size(fourier);
+N = 32; % an example N
+[nneuron,nfreq,ntrial,ntime] = size(fourierodd);
 % compute sum of power
 power = zeros(nneuron,1);
 for itrial = 1:ntrial
-    currfour = double(squeeze(fourier(:,:,itrial,:)));
+    currfour = double(squeeze(fourierodd(:,:,itrial,:)));
     power = power + nansum(nansum(abs(currfour).^2,3),2);
 end
 % compute scaling such that power is its kth root
 scaling = (power .^ (1/N)) ./ power;
 for itrial = 1:ntrial
     for ifreq = 1:nfreq
-        currfour = double(squeeze(fourier(:,ifreq,itrial,:)));
+        currfour = double(squeeze(fourierodd(:,ifreq,itrial,:)));
         nonnanind = ~isnan(currfour(1,:));
         currfour = currfour(:,nonnanind);
         currfour = bsxfun(@times,currfour,sqrt(scaling));
         % save in fourier
-        fourier(:,ifreq,itrial,nonnanind) = single(currfour);
+        fourierodd(:,ifreq,itrial,nonnanind) = single(currfour);
+    end
+end
+
+% do the same for even spikes
+
+[nneuron,nfreq,ntrial,ntime] = size(fouriereven);
+% compute sum of power
+power = zeros(nneuron,1);
+for itrial = 1:ntrial
+    currfour = double(squeeze(fouriereven(:,:,itrial,:)));
+    power = power + nansum(nansum(abs(currfour).^2,3),2);
+end
+% compute scaling such that power is its kth root
+scaling = (power .^ (1/N)) ./ power;
+for itrial = 1:ntrial
+    for ifreq = 1:nfreq
+        currfour = double(squeeze(fouriereven(:,ifreq,itrial,:)));
+        nonnanind = ~isnan(currfour(1,:));
+        currfour = currfour(:,nonnanind);
+        currfour = bsxfun(@times,currfour,sqrt(scaling));
+        % save in fourier
+        fouriereven(:,ifreq,itrial,nonnanind) = single(currfour);
     end
 end
 
@@ -132,8 +201,12 @@ end
 
 % create input structure for nd_nwaydecomposition
 fourierdata = [];
-fourierdata.fourier = fourier;
-% square root of cross spectra
+fourierdata.fourier = fourierodd;
+% square root of cross spectra of all spikes
+fourierdata.fouriersplit{1} = fourierodd;
+% square root of cross spectra of odd spikes
+fourierdata.fouriersplit{2} = fouriereven;
+% square root of cross spectra of even spikes
 fourierdata.freq = freq;
 % frequencies in Hz
 fourierdata.label = label;
@@ -142,48 +215,27 @@ fourierdata.dimord = 'chan_freq_epoch_tap'; % req. for SPACE due to other uses
 % fourierdata.trialinfo = trialtype;
 % left/right trial codes
 fourierdata.cfg = [];
+% req. for SPACE due to other uses
 % extract spike timing networks
 cfg = [];
 cfg.model = 'spacetime';
 cfg.datparam = 'fourier';
+cfg.ncompestsrdatparam = 'fouriersplit';
 cfg.Dmode = 'identity';
-cfg.ncomp = 5;
+cfg.ncompest = 'splitrel';
+cfg.ncompestsrcritjudge = 'meanoversplitscons';
+cfg.ncompeststart = 10;
+cfg.ncompeststep = 5;
+cfg.ncompestend = 50;
+cfg.ncompestsrcritval = [.7 0 0 .7 0];
 cfg.numiter = 1000;
 cfg.convcrit = 1e-6;
-% the model for extracting spike timing networks
-% field containing square root of the cross spectra
-% necessary, see background/SPACE ref papers
-% number of networks to extract
-% max number of iterations
-% stop criterion of algorithm: minimum relative
-% difference in fit between iterations
-cfg.randstart = 25;
+
+% max number of iteration
+% stop criterion of algorithm: minimum
+%
+cfg.randstart = 50;
 % number of random initializations
+cfg.ncompestrandstart = 50;
+% number of random init. for split-rel. proc.
 nwaycomp = nd_nwaydecomposition(cfg,fourierdata);
-
-%% visualize neuron profiles
-
-% plot extracted neuron profiles for all Ns
-% first, we assume the Fourier arrays for all Ns are gathered in a cell-array
-nwaycompallN{1} % N = 1
-nwaycompallN{2} % N = 8
-nwaycompallN{3} % N = 16
-nwaycompallN{4} % N = 32
-nwaycompallN{5} % N = 64
-figure
-N = [1 8 16 32 64];
-nneuron = numel(nwaycompallN{1}.label);
-for iN = 1:5
-    % plot neuron profiles (contained in the 1st cell)
-    subplot(1,5,iN)
-    hold on
-    for inetw = 1:5
-        plot(nwaycompallN{iN}.comp{inetw}{1},'marker','.');
-    end
-    ylim = get(gca,'ylim');
-    set(gca,'ylim',[0 ylim(2)*1.05],'xlim',[1 nneuron])
-    xlabel('neurons')
-    ylabel('loading')
-    title(['neuron profiles N = ' num2str(N(iN))])
-    axis square
-end
