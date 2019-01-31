@@ -1,8 +1,7 @@
-
 %% DEFINE PARAMETERS FOR BINNING
 load CellParams.mat
 
-include_MUA = true; 
+include_MUA = false; 
 
 basepath = pwd;   
 basename = bz_BasenameFromBasepath(basepath); 
@@ -15,6 +14,10 @@ rec_length = num_samples/Fs;
 
 spiketimes_rsc = cell2mat({CellParams.SpikeTimes}');
 
+if length(CellParams)<15
+    warning('Low cell count results may not be reliable using MUA recommended')
+end
+
 if include_MUA
     load MUA.cellinfo.mat
     spiketimes_rsc = [spiketimes_rsc; spiketimes];
@@ -26,13 +29,13 @@ spiketimes_rsc = sort(spiketimes_rsc);
 % in seconds 
 bin_size = 0.001;
 nBins = floor(rec_length/bin_size);
-%% 
+%% Bin and smooth using Guassian kernel
 
 % kernel_packet = 0.02;
 % kernel_packet = floor(kernel_packet/bin_size);
 % kernel = gausswin(kernel_packet);
 
-sigma=0.01; %standard deviation of the kernerl in s 
+sigma=0.005; %standard deviation of the kernerl in s 
 edges = [-3*sigma:bin_size:3*sigma]; %Time ranges from -3*std to 3*std
 kernel = normpdf(edges,0,sigma); %Gaussian kernel
 kernel = kernel*bin_size; %multiply by the bin width so the probabilities sum to 1
@@ -41,9 +44,22 @@ spikes_hist = hist(spiketimes_rsc,nBins);
 %clear spiketimesArray
 
 pop = filter(kernel,1,spikes_hist);
-%%
-win_size = 3; % in s
-step_size = 0.001; 
+
+%% Alternatively: use 2D Gaussian filter (much longer computation time)
+
+% mn = min(cellfun(@min,spikes.times));
+% mx = max(cellfun(@max,spikes.times));
+% % k = gaussian2Dfilter([100 1],5);
+% k = fspecial('gaussian',[100 1],5);
+% dt = .001;
+% ts = mn-dt:dt:mx+dt;
+% temp = cell2mat(cellfun(@(a) nanconvn(histc(a,ts),k)',spikes.times,'uni',0)');
+% 
+% pop = sum(temp,1); 
+%% Compute state-index using a sliding window
+
+win_size = 0.5; % in s
+step_size = 0.001; % necessary to keep results in the same SR as original time-series
 win_size = win_size/bin_size;
 step_size = step_size/bin_size; 
 half_win = win_size/2; 
@@ -75,11 +91,13 @@ parfor nn = 1:nsteps
     SI(nn+half_win) = 1 - length(temp)/win_size; 
 end
 
-frag_SI = smooth(SI(half_win+1:end-half_win),500); 
+SI = movmean(SI, 2000); 
+
+frag_SI = SI(half_win+1:end-half_win); 
 frag_dat = pop(half_win+1:end-half_win); 
 
-prc_high = 90;
-prc_low = 10;
+prc_high = 70;
+prc_low = 30;
 low = prctile(frag_SI, prc_low); 
 high =  prctile(frag_SI, prc_high);
 
@@ -88,7 +106,7 @@ figure
 yyaxis left
 reduce_plot(t2,frag_dat);
 yyaxis right
-reduce_plot(t2,smooth(frag_SI,500),'r'); 
+reduce_plot(t2,frag_SI,'r'); 
 hold on
 plot(get(gca,'xlim'),[low low],'k:')
 plot(get(gca,'xlim'),[high high],'k:')
@@ -118,17 +136,12 @@ desyn_off = desyn_off./1000;
 
 %% Look for RSC spikes within syn and desyn states
 
-mua_rsc_syn = [];
-for r = 1:length(syn_on)
-    temp = spiketimes_rsc(spiketimes_rsc >= syn_on(r) & spiketimes_rsc <= syn_off(r)); 
-    mua_rsc_syn = [mua_rsc_syn; temp]; 
-end
+[synrsc_status,~,~] = InIntervals(spiketimes_rsc,[syn_on' syn_off']);
+mua_rsc_syn = spiketimes_rsc(synrsc_status ==1 ); 
 
-mua_rsc_desyn = [];
-for m = 1:length(desyn_on)
-    temp2 = spiketimes_rsc(spiketimes_rsc >= desyn_on(m) & spiketimes_rsc <= desyn_off(m)); 
-    mua_rsc_desyn = [mua_rsc_desyn; temp2]; 
-end
+[desynrsc_status,~,~] = InIntervals(spiketimes_rsc,[desyn_on' desyn_off']);
+mua_rsc_desyn = spiketimes_rsc(desynrsc_status ==1 ); 
+
 
 %% Load HPC data
 
@@ -145,39 +158,59 @@ spiketimes_hpc = unique(spiketimes_hpc);
 spiketimes_hpc = sort(spiketimes_hpc);
 
 %% Look for HPC spikes within syn and desyn states
-mua_hpc_syn = []; 
-for r = 1:length(syn_on)
-    temp = spiketimes_hpc(spiketimes_hpc >= syn_on(r) & spiketimes_hpc <= syn_off(r)); 
-    mua_hpc_syn = [mua_hpc_syn; temp]; 
-end
 
-mua_hpc_desyn = [];
-for m = 1:length(desyn_on)
-    temp2 = spiketimes_hpc(spiketimes_hpc >= desyn_on(m) & spiketimes_hpc <= desyn_off(m)); 
-    mua_hpc_desyn = [mua_hpc_desyn; temp2]; 
-end
+[synhpc_status,~,~] = InIntervals(spiketimes_hpc,[syn_on' syn_off']);
+mua_hpc_syn = spiketimes_hpc(synhpc_status ==1 ); 
+
+[desynhpc_status,~,~] = InIntervals(spiketimes_hpc,[desyn_on' desyn_off']);
+mua_hpc_desyn = spiketimes_hpc(desynhpc_status ==1 );
+
 
 %%
 
 total_time = max(mua_rsc_desyn);
 syn_time = sum(syn_off-syn_on);
 desyn_time = sum(desyn_off - desyn_on);
-rate_syn = (length(mua_rsc_syn) + length(mua_hpc_syn))/syn_time;
-rate_desyn = (length(mua_rsc_desyn) + length(mua_hpc_desyn))/desyn_time;
+rate_all_syn = (length(mua_rsc_syn) + length(mua_hpc_syn))/syn_time;
+rate_all_desyn = (length(mua_rsc_desyn) + length(mua_hpc_desyn))/desyn_time;
+rate_rsc_syn = (length(mua_rsc_syn))/syn_time;
+rate_rsc_desyn = (length(mua_rsc_desyn))/desyn_time;
+rate_hpc_syn = (length(mua_hpc_syn))/syn_time;
+rate_hpc_desyn = (length(mua_hpc_desyn))/desyn_time;
 
 CCG_syn = CrossCorr(mua_rsc_syn,mua_hpc_syn, 0.001, 1000); 
-CCG_syn = CCG_syn./length(mua_rsc_syn)./0.001./syn_time; % / rate_syn;
+CCG_syn = CCG_syn./length(mua_rsc_syn);%./0.001./rate_syn; % / syn_time;
 
 CCG_desyn = CrossCorr(mua_rsc_desyn,mua_hpc_desyn, 0.001, 1000); 
-CCG_desyn = CCG_desyn./length(mua_rsc_desyn)./0.001./desyn_time; % / rate_desyn;
+CCG_desyn = CCG_desyn./length(mua_rsc_desyn);%./0.001./rate_desyn; % / desyn_time;
 
-t = linspace(-.5, .5, 1001);
+t = linspace(.5, -.5, 1001);
 figure
 plot(t, smooth(CCG_syn,30), 'k')
 hold on
 plot(t, smooth(CCG_desyn,30), '--k')
+plot([0 0],repmat(get(gca,'ylim')',1,1),'k--')
 legend('Syn','Desyn')
 
+%% Find ripples during synchronized and desynchronized states & test when are 
+% they more prominent
+
+%cd .. 
+basepath = pwd;
+basename = bz_BasenameFromBasepath(basepath);
+
+ripFil = [basepath '/' basename '.evt.rip'];
+rip_evs = LoadEvents(ripFil);
+rip_st = rip_evs.time(cellfun(@any,regexp(rip_evs.description,'start')));
+
+[synrip_status,synrip_interval,synrip_index] = InIntervals(rip_st, [syn_on' syn_off']);
+[desynrip_status,desynrip_interval,desynrip_index] = InIntervals(rip_st, [desyn_on' desyn_off']);
+
+num_rip_syn = length(find(synrip_status ==1 )); 
+num_rip_desyn = length(find(desynrip_status ==1 )); 
+
+freq_rip_syn = num_rip_syn/syn_time  
+freq_rip_desyn = num_rip_desyn/desyn_time
 %% save parameters and results
 
 params.sigma = sigma; 
