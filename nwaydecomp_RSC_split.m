@@ -237,5 +237,6 @@ cfg.convcrit = 1e-6;
 cfg.randstart = 50;
 % number of random initializations
 cfg.ncompestrandstart = 50;
+cfg.distcomp.system = 'torque';
 % number of random init. for split-rel. proc.
 nwaycomp = nd_nwaydecomposition(cfg,fourierdata);

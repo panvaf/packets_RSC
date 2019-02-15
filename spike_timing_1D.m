@@ -1,9 +1,9 @@
-% compute ?cc measure from Luczak 2009
+% compute mcc measure from Luczak 2009
 
 load CellParams.mat
 load StateIndex.mat
-spiketimesArray = cell2mat({CellParams.SpikeTimes}');
-n_neu = size(CellParams.SpikeTimes,2);
+% spiketimesArray = cell2mat({CellParams.SpikeTimes}');
+n_neu = size(CellParams,2);
 
 %% only keep packets with a duratiom in specified interval
 
@@ -30,8 +30,8 @@ for i=1:n_neu
         % take only spikes in the corresponding packet
         temp = spiketimes(spiketimes<UDS(2,j) & spiketimes>UDS(1,j));
         % reference should be beginning of packet
-        temp = temp - UDS(2,j);
-        cellTot(i,j) = mat2cell(temp,1,length(temp));
+        temp = temp - UDS(1,j);
+        cellTot(i,j) = {temp};
         % could also merge in a 1D cell array, but this way it is tidier
     end
 end
@@ -41,10 +41,25 @@ end
 all = 1:n_neu;
 com = zeros(1,n_neu);
 for i = 1:n_neu
-    spikes = cell2mat({cellTot(i,:)}');
+    spikes = [];
+    % not very efficient but could not find my way with cell..
+    for j = 1:n_pac
+        spikes = [spikes cellTot{i,j}'];
+    end
     other = setdiff(all,i);
-    other_spikes = cell2mat({cellTot(other,:)}');
-    cch = CrossCorr(spikes, other_spikes, 0.002, 50);
+    other_spikes = [];
+    for k=1:n_neu-1
+        num = other(k);
+        for j = 1:n_pac
+            other_spikes = [other_spikes cellTot{num,j}'];
+        end
+    end
+    spikes = sort(spikes);
+    other_spikes = sort(other_spikes);
+    cch = CrossCorr(spikes, other_spikes, 0.002, 100);
     cch = cch./0.002./length(spikes);
-    com(i) = mean(cch); % need to modify because it is distribution not observations
+    timevec = linspace(-.1 , .1, 101);
+    figure
+    bar(timevec,smooth(cch))
+    com(i) = mean(cch.*timevec')/sum(cch);
 end
