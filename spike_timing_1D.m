@@ -59,7 +59,9 @@ for i = 1:n_neu
     cch = CrossCorr(spikes, other_spikes, 0.002, 100);
     cch = cch./0.002./length(spikes);
     timevec = linspace(-.1 , .1, 101);
+    cor = timevec(end)./(timevec(end)*1.02 - abs(timevec));
     figure
-    bar(timevec,smooth(cch))
+    bar(timevec,smooth(cch).*cor')
     com(i) = mean(cch.*timevec')/sum(cch);
+    % still would have to correct for varying packet length (big lags not favoured)
 end
