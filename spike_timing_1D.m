@@ -61,7 +61,8 @@ for i = 1:n_neu
     timevec = linspace(-.1 , .1, 101);
     cor = timevec(end)./(timevec(end)*1.02 - abs(timevec));
     figure
-    bar(timevec,smooth(cch).*cor')
-    com(i) = mean(cch.*timevec')/sum(cch);
+    cch_cor = cch.*cor';
+    bar(timevec,smooth(cch_cor))
+    com(i) = mean(cch_cor.*timevec')/sum(cch_cor);
     % still would have to correct for varying packet length (big lags not favoured)
 end
