@@ -24,7 +24,7 @@ n_pac = size(UDS,2);
 %% create 2D cell array neurons*packets
 
 cellTot = cell(n_neu,n_pac);
-for i=1:n_neu
+parfor i=1:n_neu
     spiketimes = cell2mat({CellParams(i).SpikeTimes}');
     for j=1:n_pac
         % take only spikes in the corresponding packet
@@ -40,7 +40,8 @@ end
 
 all = 1:n_neu;
 com = zeros(1,n_neu);
-for i = 1:n_neu
+crosscors = zeros(101,n_neu);
+parfor i = 1:n_neu
     spikes = [];
     % not very efficient but could not find my way with cell..
     for j = 1:n_pac
@@ -62,7 +63,8 @@ for i = 1:n_neu
     cor = timevec(end)./(timevec(end)*1.02 - abs(timevec));
     figure
     cch_cor = cch.*cor';
-    bar(timevec,smooth(cch_cor))
+    crosscors(:,i) = cch_cor;
+    % bar(timevec,smooth(cch_cor))
     com(i) = mean(cch_cor.*timevec')/sum(cch_cor);
     % still would have to correct for varying packet length (big lags not favoured)
 end
