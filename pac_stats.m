@@ -1,6 +1,6 @@
 % compute packet statistics
 
-%load StateIndex.mat
+load StateIndex.mat
 
 starts = UDS(1,:);
 ends = UDS(2,:);
