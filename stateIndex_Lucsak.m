@@ -55,19 +55,6 @@ end
 a = prctile(perc_active,[th_syn th_desyn]);
 th_syn = a(1); th_desyn = a(2);
 
-time = bin_size:bin_size:rec_length;
-figure
-plot(time,MUA/sum(kernel))
-hold on
-plot(time,perc_active)
-plot(time,th_syn*ones(size(time)))
-plot(time,th_desyn*ones(size(time)))
-title('State index')
-legend('MUA','State Index','Syn threshold','Desyn threshold')
-xlabel('Time (s)')
-ylabel('Percentage')
-%xlim([6595 6605])
-
 %% define syn and desyn states
 
 syn = zeros(1,nBins);
@@ -101,6 +88,57 @@ INX_desyn(:,1) = on_desyn;
 INX_desyn(:,2) = off_desyn;
 INX_syn = INX_syn + f(1) - 1 - window/2;
 INX_desyn = INX_desyn + z(1) - 1 - window/2;
+
+%% merge successive syn and desyn states to get larger windows
+
+temp_syn = ones(size(INX_syn,1),3);
+temp_syn(:,1:2) = INX_syn;
+temp_desyn = zeros(size(INX_desyn,1),3);
+temp_desyn(:,1:2) = INX_desyn;
+full = [temp_syn; temp_desyn];
+clear temp_syn temp_desyn
+
+full = sortrows(full);
+
+counter = 1; state = 1;
+for i = 1:size(full,1)
+    if state==full(i,3)
+        full(counter,2) = full(i,2);
+        full(i,1) = 0;
+    else
+        state = full(i,3);
+        counter = i;
+    end
+end
+
+del = full(:,1)==0;
+full(del,:) = [];
+
+n_syn = sum(full(:,3));
+n_desyn = size(full,1) - n_syn;
+
+full = sortrows(full,[3 1]);
+INX_desyn = full(1:n_desyn,1:2);
+INX_syn = full((n_desyn+1):end,1:2);
+clear full
+
+%% plot
+
+time = bin_size:bin_size:rec_length;
+figure
+plot(time,MUA/sum(kernel))
+hold on
+plot(time,perc_active)
+plot(time,th_syn*ones(size(time)))
+plot(time,th_desyn*ones(size(time)))
+title('State index')
+xlabel('Time (s)')
+ylabel('Percentage')
+scatter(INX_syn(:,1)/1000,th_syn*ones(size(INX_syn,1),1))
+scatter(INX_syn(:,2)/1000,th_syn*ones(size(INX_syn,1),1))
+scatter(INX_desyn(:,1)/1000,th_desyn*ones(size(INX_desyn,1),1))
+scatter(INX_desyn(:,1)/1000,th_desyn*ones(size(INX_desyn,1),1))
+legend('MUA','State Index','Syn threshold','Desyn threshold','syn-start','syn-end','desyn-start','desyn-end')
 
 %% 
 

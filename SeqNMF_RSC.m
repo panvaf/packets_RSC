@@ -1,6 +1,5 @@
 % code written by Sam Mckenzie, subsequent modifications by panvaf
 
-
 %% load data
 load DSC1914_181015_1_RSC.spikes.cellinfo.mat
 load StateIndex.mat
@@ -15,7 +14,8 @@ ts = mn-dt:dt:mx+dt;
 temp = cell2mat(cellfun(@(a) nanconvn(histc(a,ts),k)',spikes.times,'uni',0)');
 
 %% only keep packets with a duratiom in specified interval
-
+NEURAL = temp;
+%{
 min_dur = .05; % in sec
 max_dur = .2;
 
@@ -41,9 +41,9 @@ for i=1:size(index,2)
     NEURAL(:,ind:ind+len) = temp(:,index(1,i):index(2,i));
     ind = ind + len;
 end
-
+%}
 %% break data into training set and test set
-splitN = floor(size(NEURAL,2)*.01);
+splitN = floor(size(NEURAL,2)*.1);
 
 trainNEURAL = NEURAL(:,1:splitN); 
 
