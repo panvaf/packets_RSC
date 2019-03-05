@@ -1,3 +1,10 @@
+shuffle = false;
+no_shuf = 1000;
+iter = 1;
+if shuffle
+    iter = no_shuf;
+end
+
 % compute mcc measure from Luczak 2009
 
 load CellParams.mat
@@ -37,7 +44,7 @@ end
 
 %% create 1D cell array with spikes from every neuron
 
-cellTot = cell(n_neu);
+cellTot = cell(n_neu,1);
 parfor i=1:n_neu
     counter = 1;
     cur_spikes = zeros(spike_n(i),1);
@@ -61,29 +68,56 @@ end
 all = 1:n_neu;
 com = zeros(1,n_neu);
 crosscors = zeros(101,n_neu);
-parfor i = 1:n_neu
-    spikes = cellTot{i}';
-    other = setdiff(all,i);
-    other_spikes = zeros(sum(spike_n)-spike_n(i),1);
-    counter = 1;
-    for j=1:n_neu-1
-        pointer = other(j);
-        num = spike_n(pointer);
-        other_spikes(counter:(counter+num-1)) = cellTot{pointer}';
-        counter = counter + num;
-    end
-    spikes = sort(spikes);
-    other_spikes = sort(other_spikes);
-    cch = CrossCorr(spikes, other_spikes, 0.002, 100);
-    cch = cch./0.002./length(spikes);
-    timevec = linspace(-.1 , .1, 101);
-    cor = timevec(end)./(timevec(end)*1.02 - abs(timevec));
-    cch_cor = cch.*cor';
-    crosscors(:,i) = cch_cor;
-    % figure; bar(timevec,smooth(cch_cor))
-    com(i) = mean(cch_cor.*timevec')/sum(cch_cor);
-    % still would have to correct for varying packet length (big lags not favoured)
+margins = zeros(iter,2);
+
+
+all_spikes = zeros(sum(spike_n),1);
+counter = 1;
+for j=1:n_neu
+    num = spike_n(j);
+    all_spikes(counter:(counter+num-1)) = cellTot{j}';
+    counter = counter + num;
 end
+
+for k=1:iter
+    if shuffle
+        shuf_spikes = all_spikes(randperm(length(all_spikes)));
+        counter = 1;
+        for j=1:n_neu
+            num = spike_n(j);
+            cellTot{j} = shuf_spikes(counter:(counter+num-1));
+            counter = counter + num;
+        end
+    end
+    
+    parfor i = 1:n_neu
+        spikes = cellTot{i}';
+        other = setdiff(all,i);
+        other_spikes = zeros(sum(spike_n)-spike_n(i),1);
+        counter = 1;
+        for j=1:n_neu-1
+            pointer = other(j);
+            num = spike_n(pointer);
+            other_spikes(counter:(counter+num-1)) = cellTot{pointer}';
+            counter = counter + num;
+        end
+        spikes = sort(spikes);
+        other_spikes = sort(other_spikes);
+        cch = CrossCorr(spikes, other_spikes, 0.002, 100);
+        cch = cch./0.002./length(spikes);
+        timevec = linspace(-.1 , .1, 101);
+        cor = timevec(end)./(timevec(end)*1.02 - abs(timevec));
+        cch_cor = cch.*cor';
+        crosscors(:,i) = cch_cor;
+        % figure; bar(timevec,smooth(cch_cor))
+        com(i) = mean(cch_cor.*timevec')/sum(cch_cor);
+        % still would have to correct for varying packet length (big lags not favoured) 
+    end
+    margins(k,1) = max(com);
+    margins(k,2) = -min(com);
+end
+
+percentiles = prctile(margins,95);
 
 figure
 plot(com*1000)
