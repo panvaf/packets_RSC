@@ -137,7 +137,7 @@ ylabel('Percentage')
 scatter(INX_syn(:,1)/1000,th_syn*ones(size(INX_syn,1),1))
 scatter(INX_syn(:,2)/1000,th_syn*ones(size(INX_syn,1),1))
 scatter(INX_desyn(:,1)/1000,th_desyn*ones(size(INX_desyn,1),1))
-scatter(INX_desyn(:,1)/1000,th_desyn*ones(size(INX_desyn,1),1))
+scatter(INX_desyn(:,2)/1000,th_desyn*ones(size(INX_desyn,1),1))
 legend('MUA','State Index','Syn threshold','Desyn threshold','syn-start','syn-end','desyn-start','desyn-end')
 
 %% 

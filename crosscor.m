@@ -25,20 +25,20 @@ stm_t = 'start';
 
 udsFil = [basepath '/' basename '.evt.uds'];
 uds_evs = LoadEvents(udsFil);
-uds_st = uds_evs.time(cellfun(@any,regexp(uds_evs.description,uds_t)));
+uds = uds_evs.time(cellfun(@any,regexp(uds_evs.description,uds_t)));
 
 ripFil = [basepath '/' basename '.evt.rip'];
 rip_evs = LoadEvents(ripFil);
-rip_st = rip_evs.time(cellfun(@any,regexp(rip_evs.description,rip_t)));
+rip = rip_evs.time(cellfun(@any,regexp(rip_evs.description,rip_t)));
 
 stmFil = [basepath '/' basename '.evt.stm'];
 stm_evs = LoadEvents(stmFil);
-stm_st = stm_evs.time(cellfun(@any,regexp(stm_evs.description,stm_t)));
+stm = stm_evs.time(cellfun(@any,regexp(stm_evs.description,stm_t)));
 
-cch1 = CrossCorr(rip_st, uds_st, 0.01, 100);
-cch1 = cch1./0.01./length(rip_st);
-cch2 = CrossCorr(stm_st, uds_st, 0.01, 100);
-cch2 = cch2./0.01./length(stm_st);
+cch1 = CrossCorr(rip, uds, 0.01, 100);
+cch1 = cch1./0.01./length(rip);
+cch2 = CrossCorr(stm, uds, 0.01, 100);
+cch2 = cch2./0.01./length(stm);
 
 timevec = linspace(-.5 , .5, 101);
 bar(timevec,smooth(cch1))
